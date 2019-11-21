@@ -126,7 +126,9 @@ python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10
 To evaluate a trained network is simple, just add the --test flag on the training script above:
 
 ```Shell
-python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py --cfg config/yolov3_baseline.cfg -d COCO --t    fboard --distributed --ngpu 10 --checkpoint /path/to/you/weights --start_epoch 0 --half --asff --rfb --log_dir log/COCO_ASFF -s 608 --test
+python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py \
+--cfg config/yolov3_baseline.cfg -d COCO --tfboard --distributed --ngpu 10 \
+--checkpoint /path/to/you/weights --start_epoch 0 --half --asff --rfb --log_dir log/COCO_ASFF -s 608 --test
 ```
 - Note:
   * --vis: Visualization of ASFF.
