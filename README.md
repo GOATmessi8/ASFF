@@ -45,7 +45,7 @@ Please cite our paper in your publications if it helps your research:
 ./make.sh
 ```
 
-# Prerequisites
+### Prerequisites
 - We also use [apex](https://github.com/NVIDIA/apex), numpy, opencv, tqdm, pyyaml, matplotlib, scikit-image...
     * Note: We use apex for distributed training and synchronized batch normalization. For FP16 training, since the current apex version have some [issues](https://github.com/NVIDIA/apex/issues/318), we use the old version of FP16_Optimizer, and split the code in ./utils/fp_utils.
 
@@ -82,9 +82,8 @@ ln -s /path/to/VOCdevkit ./data/VOC
 
 ## Training
 
-- First download the mix-up pretrained [Darknet-53](https://arxiv.org/abs/1902.04103) PyTorch base network weights at: https://drive.google.com/open?id=1phqyYhV1K9KZLQZH1kENTAPprLBmymfP 
-
-or from our [BaiduYun Driver](https://pan.baidu.com/s/19PaXl6p9vXHG2ZuGqtfLOg) 
+- First download the mix-up pretrained [Darknet-53](https://arxiv.org/abs/1902.04103) PyTorch base network weights at: https://drive.google.com/open?id=1phqyYhV1K9KZLQZH1kENTAPprLBmymfP  
+  or from our [BaiduYun Driver](https://pan.baidu.com/s/19PaXl6p9vXHG2ZuGqtfLOg) 
 
 - By default, we assume you have downloaded the file in the `ASFF/weights` dir:
 
