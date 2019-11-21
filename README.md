@@ -5,14 +5,14 @@ By Songtao Liu, Di Huang, Yunhong Wang
 ### Introduction
 In this work, we propose a novel and data driven strategy for pyramidal feature fusion, referred to as adaptively spatial feature fusion (ASFF). It learns the way to spatially filter conflictive information to suppress the inconsistency, thus improving the scale-invariance of features, and introduces nearly free inference overhead. For more details, please refer to our [arXiv paper]().
 
-<img align="right" src="https://github.com/ruinmessi/RFBNet/blob/master/doc/RFB.png">
+<img align="right" src="https://github.com/ruinmessi/ASFF/blob/master/doc/asff.png">
 
 &nbsp;
 &nbsp;
 
 ### COCO 
 | System |  *test-dev mAP* | **Time** (V100) | **Time** (2080ti)|
-|:-------|:-----:|:-------:|:------:|
+|:-------|:-----:|:-------:|:-------:|
 | [YOLOv3 608](http://pjreddie.com/darknet/yolo/) | 33.0 | 20ms| 24ms|
 | YOLOv3 608+ [BoFs](https://arxiv.org/abs/1902.04103) | 37.0 | 20ms | 24ms|
 | YOLOv3* 608(ours baseline) | **38.8** | 20ms | 24ms|
@@ -47,7 +47,10 @@ Please cite our paper in your publications if it helps your research:
 ./make.sh
 ```
 #Prerequisites
-We also use [apex](https://github.com/NVIDIA/apex), opencv, tqdm 
+- We also use [apex](https://github.com/NVIDIA/apex), numpy, opencv, tqdm, pyyaml, matplotlib, scikit-image...
+    * Note: We use apex for distributed training and synchronized batch normalization. For FP16 training, since the current apex version have some [issues](https://github.com/NVIDIA/apex/issues/318), we use the old version of FP16_Optimizer, and split the code in ./utils/fp_utils.
+
+- We also support tensorboard if you have installed it.   
 
 ## Datasets
 Note: We currently only support [COCO](http://mscoco.org/) and [VOC](http://host.robots.ox.ac.uk/pascal/VOC/).  
@@ -72,41 +75,67 @@ $COCO/images/val2017/
 ```
 The current COCO dataset has released new *train2017* and *val2017* sets, and we defaultly train our model on *train2017* and evaluate on *val2017*. 
 
-## Training
-- First download the fc-reduced [VGG-16](https://arxiv.org/abs/1409.1556) PyTorch base network weights at:    https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
-or from our [BaiduYun Driver](https://pan.baidu.com/s/1jIP86jW) 
-- MobileNet pre-trained basenet is ported from [MobileNet-Caffe](https://github.com/shicai/MobileNet-Caffe), which achieves slightly better accuracy rates than the original one reported in the [paper](https://arxiv.org/abs/1704.04861), weight file is available at: https://drive.google.com/open?id=13aZSApybBDjzfGIdqN1INBlPsddxCK14 or [BaiduYun Driver](https://pan.baidu.com/s/1dFKZhdv).
-
-- By default, we assume you have downloaded the file in the `RFBNet/weights` dir:
-```Shell
-mkdir weights
-cd weights
-wget https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
+### VOC Dataset
+Install the VOC dataset as ./data/VOC. We also recommend a soft-link:
+```
+ln -s /path/to/VOCdevkit ./data/VOC
 ```
 
-- To train RFBNet using the train script simply specify the parameters listed in `train_RFB.py` as a flag or manually change them.
+## Training
+
+- First download the mix-up pretrained [Darknet-53](https://arxiv.org/abs/1902.04103) PyTorch base network weights at: https://drive.google.com/open?id=1phqyYhV1K9KZLQZH1kENTAPprLBmymfP 
+
+or from our [BaiduYun Driver](https://pan.baidu.com/s/1jIP86jW) 
+
+- By default, we assume you have downloaded the file in the `ASFF/weights` dir:
+
+- Since random resizing consumes much more GPU memory, we implement FP16 training with an old version of apex. 
+
+- We currently only test the code with distributed training on multiple GPUs (10 2080ti or 4 Tesla V100).
+
+- To train YOLOv3 baseline (ours) using the train script simply specify the parameters listed in `main.py` as a flag or manually change them on config/yolov3_baseline.cfg:
 ```Shell
-python train_RFB.py -d VOC -v RFB_vgg -s 300 
+python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py --cfg config/yolov3_baseline.cfg -d COCO --tfboard --distributed --ngpu 10 --checkpoint weights/darknet53_feature_mx.pth --start_epoch 0 --half --log_dir log/COCO -s 608 
 ```
 - Note:
-  * -d: choose datasets, VOC or COCO.
-  * -v: choose backbone version, RFB_VGG, RFB_E_VGG or RFB_mobile.
-  * -s: image size, 300 or 512.
-  * You can pick-up training from a checkpoint by specifying the path as one of the training parameters (again, see `train_RFB.py` for options)
-  * If you want to reproduce the results in the paper, the VOC model should be trained about 240 epoches while the COCO version need 130 epoches.
+  * --cfg: config files.
+  * --tfboard: use tensorboard.
+  * -d: choose datasets, COCO or VOC.
+  * --ngpu: number of GPUs.
+  * -c, --checkpoint: pretrained weights or resume weights. You can pick-up training from a checkpoint by specifying the path as one of the training parameters (again, see `main.py` for options)
+ 
+  * --start_epoch: used for resume training.
+  * --log_dir: log dir for tensorboard.
+  * -s: evaluation image size, from 320 to 608 as in YOLOv3.
+
+- To train YOLOv3 with ASFF or ASFF*, you only need add some addional flags:
+```Shell
+python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py --cfg config/yolov3_baseline.cfg -d COCO --t    fboard --distributed --ngpu 10 --checkpoint weights/darknet53_feature_mx.pth --start_epoch 0 --half --asff --rfb --dropblock --log_dir log/COCO_ASFF* -s 608 
+```
+- Note:
+  * --asff: add ASFF module on YOLOv3.
+  * --rfb: use [RFB](https://github.com/ruinmessi/RFBNet) moduel on ASFF*.
+  * --dropblock: use [DropBlock](https://arxiv.org/abs/1810.12890).
   
 ## Evaluation
-To evaluate a trained network:
+To evaluate a trained network is simple, just add the --test flag on the training script above:
 
 ```Shell
-python test_RFB.py -d VOC -v RFB_vgg -s 300 --trained_model /path/to/model/weights
+python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py --cfg config/yolov3_baseline.cfg -d COCO --t    fboard --distributed --ngpu 10 --checkpoint /path/to/you/weights --start_epoch 0 --half --asff --rfb --dropblock --log_dir log/COCO_ASFF* -s 608 --test
 ```
-By default, it will directly output the mAP results on VOC2007 *test* or COCO *minival2014*. For VOC2012 *test* and COCO *test-dev* results, you can manually change the datasets in the `test_RFB.py` file, then save the detection results and submitted to the server. 
+- Note:
+  * --vis: Visualization of ASFF.
+  # --testset: evaluate on COCO *test-dev*.
+
+By default, it will directly output the mAP results on COCO *val2017* or VOC *test 2007*. 
 
 ## Models
 
-* 07+12 [RFB_Net300](https://drive.google.com/open?id=1apPyT3IkNwKhwuYyp432IJrTd0QHGbIN), [BaiduYun Driver](https://pan.baidu.com/s/1xOp3_FDk49YlJ-6C-xQfHw)
-* COCO [RFB_Net512_E](https://drive.google.com/open?id=1pHDc6Xg9im3affOr7xaimXaRNOHtbaPM), [BaiduYun Driver](https://pan.baidu.com/s/1o8dxrom)
-* COCO [RFB_Mobile Net300](https://drive.google.com/open?id=1vmbTWWgeMN_qKVWOeDfl1EN9c7yHPmOe), [BaiduYun Driver](https://pan.baidu.com/s/1bp4ik1L)
+* yolov3_baseline (ours) 
 
+* yolov3_asff
+
+* yolov3_asff\* (320-608)
+
+* yolov3_asff\* (480-800)
 

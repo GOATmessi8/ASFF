@@ -16,4 +16,6 @@ weights/
 log/
 save/
 trained_model/
+dist/
+*.egg-info/
 
