@@ -40,7 +40,7 @@ Please cite our paper in your publications if it helps your research:
 - Install [PyTorch-1.3.1](http://pytorch.org/) by selecting your environment on the website and running the appropriate command.
 - Clone this repository. 
     * Note: We currently only support PyTorch-1.0.0+ and Python 3+.
-- Compile the DCN layer (ported from [DCNv2 implementation](https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0):
+- Compile the DCN layer (ported from [DCNv2 implementation](https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0)):
 ```Shell
 ./make.sh
 ```
