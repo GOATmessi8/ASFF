@@ -12,7 +12,7 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 
 ### COCO 
 | System |  *test-dev mAP* | **Time** (V100) | **Time** (2080ti)|
-|:-------|:-----:|:-------:|
+|:-------|:-----:|:-------:|:------:|
 | [YOLOv3 608](http://pjreddie.com/darknet/yolo/) | 33.0 | 20ms| 24ms|
 | YOLOv3 608+ [BoFs](https://arxiv.org/abs/1902.04103) | 37.0 | 20ms | 24ms|
 | YOLOv3* 608(ours baseline) | **38.8** | 20ms | 24ms|
