@@ -101,11 +101,13 @@ python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10
 - Note:
   * --cfg: config files.
   * --tfboard: use tensorboard.
+  * --distributed: distributed training (we only test the code with distributed training)
   * -d: choose datasets, COCO or VOC.
   * --ngpu: number of GPUs.
   * -c, --checkpoint: pretrained weights or resume weights. You can pick-up training from a checkpoint by specifying the path as one of the training parameters (again, see `main.py` for options)
  
   * --start_epoch: used for resume training.
+  * --half: FP16 training.
   * --log_dir: log dir for tensorboard.
   * -s: evaluation image size, from 320 to 608 as in YOLOv3.
 
@@ -125,11 +127,12 @@ python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10
 To evaluate a trained network is simple, just add the --test flag on the training script above:
 
 ```Shell
-python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py --cfg config/yolov3_baseline.cfg -d COCO --t    fboard --distributed --ngpu 10 --checkpoint /path/to/you/weights --start_epoch 0 --half --asff --rfb --dropblock --log_dir log/COCO_ASFF -s 608 --test
+python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py --cfg config/yolov3_baseline.cfg -d COCO --t    fboard --distributed --ngpu 10 --checkpoint /path/to/you/weights --start_epoch 0 --half --asff --rfb --log_dir log/COCO_ASFF -s 608 --test
 ```
 - Note:
   * --vis: Visualization of ASFF.
   * --testset: evaluate on COCO *test-dev*.
+  * -s: evaluation image size.
 
 By default, it will directly output the mAP results on COCO *val2017* or VOC *test 2007*. 
 
