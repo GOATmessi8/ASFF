@@ -22,7 +22,7 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 ### Citing 
 Please cite our paper in your publications if it helps your research:
 
-    @article{liu2017RFB,
+    @article{liu2019asff,
         title = {Learning Spatial Fusion for Single-Shot Object Detection},
         author = {Songtao Liu, Di Huang and Yunhong Wang},
         booktitle = {arxiv preprint arXiv:1911.07767},
