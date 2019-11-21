@@ -1,4 +1,4 @@
-#Learning Spatial Fusion for Single-Shot Object Detection
+# Learning Spatial Fusion for Single-Shot Object Detection
 
 By Songtao Liu, Di Huang, Yunhong Wang
 
@@ -45,7 +45,7 @@ Please cite our paper in your publications if it helps your research:
 ./make.sh
 ```
 
-##Prerequisites
+# Prerequisites
 - We also use [apex](https://github.com/NVIDIA/apex), numpy, opencv, tqdm, pyyaml, matplotlib, scikit-image...
     * Note: We use apex for distributed training and synchronized batch normalization. For FP16 training, since the current apex version have some [issues](https://github.com/NVIDIA/apex/issues/318), we use the old version of FP16_Optimizer, and split the code in ./utils/fp_utils.
 
@@ -90,7 +90,7 @@ or from our [BaiduYun Driver](https://pan.baidu.com/s/19PaXl6p9vXHG2ZuGqtfLOg)
 
 - Since random resizing consumes much more GPU memory, we implement FP16 training with an old version of apex. 
 
-- We currently only test the code with distributed training on multiple GPUs (10 2080ti or 4 Tesla V100).
+- We currently **ONLY** test the code with distributed training on multiple GPUs (10 2080ti or 4 Tesla V100).
 
 - To train YOLOv3 baseline (ours) using the train script simply specify the parameters listed in `main.py` as a flag or manually change them on config/yolov3_baseline.cfg:
 ```Shell
@@ -129,7 +129,7 @@ python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10
 ```
 - Note:
   * --vis: Visualization of ASFF.
-  # --testset: evaluate on COCO *test-dev*.
+  * --testset: evaluate on COCO *test-dev*.
 
 By default, it will directly output the mAP results on COCO *val2017* or VOC *test 2007*. 
 
