@@ -9,6 +9,9 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 
 
 ### COCO 
+* TODO:
+    Add tiny Yolov3.
+
 | System |  *test-dev mAP* | **Time** (V100) | **Time** (2080ti)|
 |:-------|:-----:|:-------:|:-------:|
 | [YOLOv3 608](http://pjreddie.com/darknet/yolo/) | 33.0 | 20ms| 24ms|
