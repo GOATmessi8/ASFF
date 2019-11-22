@@ -262,7 +262,7 @@ class YOLOv3Head(nn.Module):
                     self.iou_loss(pred[..., :4][coord_mask], target[..., :4][coord_mask])).sum() / batchsize
             tgt_scale = tgt_scale[...,:2]
             loss_xy = (tgt_scale*self.bcewithlog_loss(output[...,:2], l1_target[...,:2])).sum() / batchsize
-            loss_wh = (self.l1_loss(output[...,2:4], l1_target[...,2:4],tgt_scale)).sum() / batchsize
+            loss_wh = (tgt_scale*self.l1_loss(output[...,2:4], l1_target[...,2:4])).sum() / batchsize
             loss_l1 = loss_xy + loss_wh
             loss_obj = (obj_mask*(self.bcewithlog_loss(output[..., 4], target[..., 4]))).sum() / batchsize
             loss_cls = (cls_mask*(self.bcewithlog_loss(output[..., 5:], target[..., 5:]))).sum()/ batchsize
