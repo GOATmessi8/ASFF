@@ -3,7 +3,7 @@
 By Songtao Liu, Di Huang, Yunhong Wang
 
 ### Introduction
-In this work, we propose a novel and data driven strategy for pyramidal feature fusion, referred to as adaptively spatial feature fusion (ASFF). It learns the way to spatially filter conflictive information to suppress the inconsistency, thus improving the scale-invariance of features, and introduces nearly free inference overhead. For more details, please refer to our [arXiv paper]().
+In this work, we propose a novel and data driven strategy for pyramidal feature fusion, referred to as adaptively spatial feature fusion (ASFF). It learns the way to spatially filter conflictive information to suppress the inconsistency, thus improving the scale-invariance of features, and introduces nearly free inference overhead. For more details, please refer to our [arXiv paper](https://arxiv.org/abs/1911.09516).
 
 <img align="center" src="https://github.com/ruinmessi/ASFF/blob/master/doc/asff.png">
 
@@ -25,7 +25,7 @@ Please cite our paper in your publications if it helps your research:
     @article{liu2019asff,
         title = {Learning Spatial Fusion for Single-Shot Object Detection},
         author = {Songtao Liu, Di Huang and Yunhong Wang},
-        booktitle = {arxiv preprint arXiv:1911.07767},
+        booktitle = {arxiv preprint arXiv:1911.09516},
         year = {2019}
     }
 
