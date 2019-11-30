@@ -68,7 +68,6 @@ ln -s /path/to/coco ./data/COCO
 It should have this basic structure
 ```Shell
 $COCO/
-$COCO/cache/
 $COCO/annotations/
 $COCO/images/
 $COCO/images/test2017/
