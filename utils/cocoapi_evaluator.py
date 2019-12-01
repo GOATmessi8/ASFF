@@ -12,6 +12,7 @@ from utils.utils import *
 from utils import distributed_util
 from utils.vis_utils import make_vis, make_pred_vis
 import time
+import apex
 
 DEBUG =False
 
@@ -70,7 +71,7 @@ class COCOAPIEvaluator():
         self.voc = voc
         self.vis = vis
 
-    def evaluate(self, model, half=False):
+    def evaluate(self, model, half=False, distributed=False):
         """
         COCO average precision (AP) Evaluation. Iterate inference on the test dataset
         and the results are evaluated by COCO API.
@@ -80,9 +81,10 @@ class COCOAPIEvaluator():
             ap50_95 (float) : calculated COCO AP for IoU=50:95
             ap50 (float) : calculated COCO AP for IoU=50
         """
-        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
+        if isinstance(model, apex.parallel.DistributedDataParallel):
             model = model.module
-        model.eval()
+
+        model=model.eval()
         cuda = torch.cuda.is_available()
         if half:
             Tensor = torch.cuda.HalfTensor if cuda else torch.HalfTensor
@@ -90,27 +92,28 @@ class COCOAPIEvaluator():
             Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
         ids = []
         data_dict = []
-        dataiterator = iter(self.dataloader)
         img_num = 0
 
         indices = list(range(self.num_images))
-        dis_indices = indices[distributed_util.get_rank()::distributed_util.get_world_size()]
+        if distributed:
+            dis_indices = indices[distributed_util.get_rank()::distributed_util.get_world_size()]
+        else:
+            dis_indices = indices
         progress_bar = tqdm if distributed_util.is_main_process() else iter
         num_classes = 80 if not self.voc else 20
 
-        if distributed_util.is_main_process():
-            inference_time=0
-            nms_time=0
-            n_samples=len(dis_indices)
+        inference_time=0
+        nms_time=0
+        n_samples=len(dis_indices)-10
 
-        for i in progress_bar(dis_indices):
+        for k, i in enumerate(progress_bar(dis_indices)):
             img, _, info_img, id_ = self.dataset[i]  # load a batch
             info_img = [float(info) for info in info_img]
             id_ = int(id_)
             ids.append(id_)
             with torch.no_grad():
                 img = Variable(img.type(Tensor).unsqueeze(0))
-                if distributed_util.is_main_process() and i > 9:
+                if k > 9:
                     start=time.time()
 
                 if self.vis:
@@ -118,14 +121,14 @@ class COCOAPIEvaluator():
                 else:
                     outputs = model(img)
 
-                if distributed_util.is_main_process() and i > 9:
+                if k > 9:
                     infer_end=time.time()
                     inference_time += (infer_end-start)
 
                 outputs = postprocess(
                     outputs, num_classes, self.confthre, self.nmsthre)
 
-                if distributed_util.is_main_process() and i > 9:
+                if k > 9:
                     nms_end=time.time()
                     nms_time +=(nms_end-infer_end)
 
@@ -157,8 +160,20 @@ class COCOAPIEvaluator():
                 class_names = self.dataset._classes
                 make_pred_vis('COCO', i, o_img, class_names, bboxes, cls, scores)
 
-        distributed_util.synchronize()
-        data_dict = _accumulate_predictions_from_multiple_gpus(data_dict)
+        if distributed:
+            distributed_util.synchronize()
+            data_dict = _accumulate_predictions_from_multiple_gpus(data_dict)
+            inference_time = torch.FloatTensor(1).type(Tensor).fill_(inference_time)
+            nms_time = torch.FloatTensor(1).type(Tensor).fill_(nms_time)
+            n_samples = torch.LongTensor(1).type(Tensor).fill_(n_samples)
+            distributed_util.synchronize()
+            torch.distributed.reduce(inference_time, dst=0)
+            torch.distributed.reduce(nms_time, dst=0)
+            torch.distributed.reduce(n_samples, dst=0)
+            inference_time = inference_time.item()
+            nms_time = nms_time.item()
+            n_samples = n_samples.item()
+
         if not distributed_util.is_main_process():
             return 0, 0
 
@@ -166,8 +181,8 @@ class COCOAPIEvaluator():
         print('Main process Evaluating...')
 
         annType = ['segm', 'bbox', 'keypoints']
-        a_infer_time = 1000*inference_time / (n_samples-10)
-        a_nms_time= 1000*nms_time / (n_samples-10)
+        a_infer_time = 1000*inference_time / (n_samples)
+        a_nms_time= 1000*nms_time / (n_samples)
 
         print('Average forward time: %.2f ms, Average NMS time: %.2f ms, Average inference time: %.2f ms' %(a_infer_time, \
                 a_nms_time, (a_infer_time+a_nms_time)))
@@ -184,7 +199,6 @@ class COCOAPIEvaluator():
                 json.dump(data_dict, open(tmp, 'w'))
                 cocoDt = cocoGt.loadRes(tmp)
             cocoEval = COCOeval(self.dataset.coco, cocoDt, annType[1])
-            cocoEval.params.imgIds = ids
             cocoEval.evaluate()
             cocoEval.accumulate()
             cocoEval.summarize()

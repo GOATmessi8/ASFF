@@ -125,12 +125,12 @@ python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10
   * --dropblock: use [DropBlock](https://arxiv.org/abs/1810.12890).
   
 ## Evaluation
-To evaluate a trained network is simple, just add the --test flag on the training script above:
+To evaluate a trained network, you can use the following command:
 
 ```Shell
-python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} main.py \
---cfg config/yolov3_baseline.cfg -d COCO --tfboard --distributed --ngpu 10 \
---checkpoint /path/to/you/weights --start_epoch 0 --half --asff --rfb --log_dir log/COCO_ASFF -s 608 --test
+python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10000} eval.py \
+--cfg config/yolov3_baseline.cfg -d COCO --distributed --ngpu 10 \
+--checkpoint /path/to/you/weights --half --asff --rfb -s 608
 ```
 - Note:
   * --vis: Visualization of ASFF.
