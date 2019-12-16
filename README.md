@@ -9,7 +9,7 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 
 ### Updates:
 - Add MobileNet V2!
-    * The previous models actually are ll trained with the wrong anchor setting, we fix the error on mobileNet model.
+    * The previous models actually are all trained with the wrong anchor setting, we fix the error on mobileNet model.
     * We currently not support rfb, dropblock and Featre Adaption for mobileNet V2.
     * FP16 training for mobileNet is not working now, I didn't figure it out. 
     * FP16 testing for mobileNet drops about 0.2 mAP. 
@@ -30,7 +30,7 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 | YOLOv3 800+ ASFF\* | **43.9** | 34ms | 38ms| 
 | YOLOv3 MobileNetV1 416 + [BoFs](https://arxiv.org/abs/1902.04103)| 28.6 | - | 22 ms| 
 | YOLOv3 MobileNetV2 416 (our baseline) | 29.0 | - | 22 ms| 
-| YOLOv3 MobileNetV2 416 +ASFF | 30.6 | - | 24 ms| 
+| YOLOv3 MobileNetV2 416 +ASFF | **30.6** | - | 24 ms| 
 
 
 ### Citing 
