@@ -10,8 +10,8 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 ### Updates:
 - Add MobileNet V2!
     * The previous models actually are all trained with the wrong anchor setting, we fix the error on mobileNet model.
-    * We currently not support rfb, dropblock and Featre Adaption for mobileNet V2.
-    * FP16 training for mobileNet is not working now, I didn't figure it out. 
+    * We currently not support rfb, dropblock and Feature Adaption for mobileNet V2.
+    * FP16 training for mobileNet is not working now. I didn't figure it out. 
     * FP16 testing for mobileNet drops about 0.2 mAP. 
 
 - Add a demo.py file
