@@ -18,6 +18,7 @@ import cv2
 cv2.setNumThreads(0)
 
 import torch
+import torch.nn as nn
 import torch.nn.init as init
 from torch.autograd import Variable
 import torch.distributed as dist
@@ -105,6 +106,7 @@ def main():
 
     print("successfully loaded config file: ", cfg)
 
+    backbone = cfg['MODEL']['BACKBONE']
     lr = cfg['TRAIN']['LR']
     epochs = cfg['TRAIN']['MAXEPOCH']
     cos = cfg['TRAIN']['COS']
@@ -152,12 +154,21 @@ def main():
     # Initiate model
     if args.asff:
         save_prefix += '_asff'
-        from models.yolov3_asff import YOLOv3
+        if backbone == 'mobile':
+            from models.yolov3_mobilev2 import YOLOv3
+            save_prefix += '_mobilev2'
+            print("For mobilenet, we currently don't support dropblock, rfb and FeatureAdaption")
+        else:
+            from models.yolov3_asff import YOLOv3
         print('Training YOLOv3 with ASFF!')
-        model = YOLOv3(num_classes = num_class, ignore_thre=ignore_thre, label_smooth = label_smooth, rfb=args.rfb, vis=args.vis)
+        model = YOLOv3(num_classes = num_class, ignore_thre=ignore_thre, label_smooth = label_smooth, rfb=args.rfb, vis=args.vis, asff=args.asff)
     else:
         save_prefix += '_baseline'
-        from models.yolov3_baseline import YOLOv3
+        if backbone == 'mobile':
+            from models.yolov3_mobilev2 import YOLOv3
+            save_prefix += '_mobilev2'
+        else:
+            from models.yolov3_baseline import YOLOv3
         print('Training YOLOv3 strong baseline!')
         if args.vis:
             print('Visualization is not supported for YOLOv3 baseline model')
@@ -167,16 +178,21 @@ def main():
 
     save_to_disk = (not args.distributed) or distributed_util.get_rank() == 0
 
-    def init_yolo(m):
-        for key in m.state_dict():
-            if key.split('.')[-1] == 'weight':
-                if 'conv' in key:
-                    init.kaiming_normal_(m.state_dict()[key], a=0.1, mode='fan_in')
-                if 'linear' in key:
-                    init.kaiming_normal_(m.state_dict()[key], a=0.0, mode='fan_in')
-                if 'bn' in key:
-                    m.state_dict()[key][...] = 1
-            elif key.split('.')[-1] == 'bias':
+    def init_yolo(M):
+        for m in M.modules():
+            if isinstance(m, nn.Conv2d):
+                if backbone == 'mobile':
+                    init.kaiming_normal_(m.weight, mode='fan_in')
+                else:
+                    init.kaiming_normal_(m.weight, a=0.1, mode='fan_in')
+                if m.bias is not None:
+                    init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm2d):
+                init.ones_(m.weight)
+                init.zeros_(m.bias)
+            elif isinstance(m, nn.Linear):
+                init.normal_(m.weight, 0, 0.01)
+                init.zeros_(m.bias)
                 m.state_dict()[key][...] = 0
 
     model.apply(init_yolo)
@@ -318,19 +334,19 @@ def main():
         Drop_layer = [16, 24, 33]
         if args.asff:
             Drop_layer = [16, 22, 29]
-        if (epoch == 5 or (epoch == args.start_epoch and args.start_epoch > 5)) and (args.dropblock):
+        if (epoch == 5 or (epoch == args.start_epoch and args.start_epoch > 5)) and (args.dropblock) and backbone!='mobile':
             block_size = [1, 3, 5]
             keep_p = [0.9, 0.9, 0.9]
             for i in range(len(Drop_layer)):
                 model.module.module_list[Drop_layer[i]].reset(block_size[i], keep_p[i])
 
-        if (epoch == 80 or (epoch == args.start_epoch and args.start_epoch > 80) ) and (args.dropblock):
+        if (epoch == 80 or (epoch == args.start_epoch and args.start_epoch > 80) ) and (args.dropblock) and backbone!='mobile':
             block_size = [3, 5, 7]
             keep_p = [0.9, 0.9, 0.9]
             for i in range(len(Drop_layer)):
                 model.module.module_list[Drop_layer[i]].reset(block_size[i], keep_p[i])
 
-        if (epoch == 150 or (epoch == args.start_epoch and args.start_epoch > 150)) and (args.dropblock):
+        if (epoch == 150 or (epoch == args.start_epoch and args.start_epoch > 150)) and (args.dropblock) and backbone!='mobile':
             block_size = [7, 7, 7]
             keep_p = [0.9, 0.9, 0.9]
             for i in range(len(Drop_layer)):
@@ -346,7 +362,7 @@ def main():
 
                 if args.distributed:
                     distributed_util.synchronize()
-                ap50_95, ap50 = evaluator.evaluate(model, args.half)
+                ap50_95, ap50 = evaluator.evaluate(model, args.half,args.distributed)
                 if args.distributed:
                     distributed_util.synchronize()
                 if args.test:
@@ -358,7 +374,7 @@ def main():
 
         # learning rate scheduling (cos or step)
             if epoch < burn_in:
-                tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (burn_in*epoch_size), 3)
+                tmp_lr = base_lr * pow((iter_i+epoch*epoch_size)*1. / (burn_in*epoch_size), 4)
                 set_lr(tmp_lr)
             elif cos:
                 if epoch <= epochs-no_mixup_epochs and epoch > 20:

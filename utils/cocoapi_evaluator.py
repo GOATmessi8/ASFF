@@ -83,6 +83,7 @@ class COCOAPIEvaluator():
         """
         if isinstance(model, apex.parallel.DistributedDataParallel):
             model = model.module
+            distributed=True
 
         model=model.eval()
         cuda = torch.cuda.is_available()
@@ -143,10 +144,10 @@ class COCOAPIEvaluator():
             bboxes[:, 3] = bboxes[:,3] - bboxes[:,1]
             cls = outputs[:, 6]
             scores = outputs[:, 4]* outputs[:,5]
-            for i in range(bboxes.shape[0]):
-                label = self.dataset.class_ids[int(cls[i])]
-                A = {"image_id": id_, "category_id": label, "bbox": bboxes[i].numpy().tolist(),
-                 "score": scores[i].numpy().item(), "segmentation": []} # COCO json format
+            for ind in range(bboxes.shape[0]):
+                label = self.dataset.class_ids[int(cls[ind])]
+                A = {"image_id": id_, "category_id": label, "bbox": bboxes[ind].numpy().tolist(),
+                 "score": scores[ind].numpy().item(), "segmentation": []} # COCO json format
                 data_dict.append(A)
             
             if self.vis:

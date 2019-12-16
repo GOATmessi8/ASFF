@@ -83,6 +83,7 @@ def eval():
 
     print("successfully loaded config file: ", cfg)
 
+    backbone=cfg['MODEL']['BACKBONE']
     test_size = (args.test_size,args.test_size)
 
     if args.dataset == 'COCO':
@@ -116,17 +117,23 @@ def eval():
         num_class=20
     # Initiate model
     if args.asff:
-        from models.yolov3_asff import YOLOv3
-        print('Testing YOLOv3 with ASFF!')
-        model = YOLOv3(num_classes = num_class, rfb=args.rfb, vis=args.vis)
+        if backbone == 'mobile':
+            from models.yolov3_mobilev2 import YOLOv3
+            print("For mobilenet, we currently don't support dropblock, rfb and FeatureAdaption")
+        else:
+            from models.yolov3_asff import YOLOv3
+        print('Training YOLOv3 with ASFF!')
+        model = YOLOv3(num_classes = num_class, rfb=args.rfb, vis=args.vis, asff=args.asff)
     else:
-        from models.yolov3_baseline import YOLOv3
-        print('Testing YOLOv3 strong baseline!')
+        if backbone == 'mobile':
+            from models.yolov3_mobilev2 import YOLOv3
+        else:
+            from models.yolov3_baseline import YOLOv3
+        print('Training YOLOv3 strong baseline!')
         if args.vis:
             print('Visualization is not supported for YOLOv3 baseline model')
             args.vis = False
         model = YOLOv3(num_classes = num_class, rfb=args.rfb)
-
 
     save_to_disk = (not args.distributed) or distributed_util.get_rank() == 0
 

@@ -45,7 +45,7 @@ def make_pred_vis(dataset,index, img, class_names, bboxes, cls, scores):
     
     cv2.imwrite(save_pred_name, im)
 
-def vis(img, boxes, scores, cls_ids, class_names=None, color=None):
+def vis(img, boxes, scores, cls_ids, conf=0.5, class_names=None, color=None):
 
     colors = torch.FloatTensor([[1,0,1],[0,0,1],[0,1,1],[0,1,0],[1,1,0],[1,0,0]]);
     def get_color(c, x, max_val):
@@ -61,7 +61,7 @@ def vis(img, boxes, scores, cls_ids, class_names=None, color=None):
     for i in range(len(boxes)):
         box = boxes[i]
         cls_conf = scores[i]
-        if cls_conf < 0.4:
+        if cls_conf < conf:
             continue
         x1 = int(box[0])
         y1 = int(box[1])

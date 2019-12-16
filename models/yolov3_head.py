@@ -8,24 +8,30 @@ from .utils_loss import *
 from .network_blocks import *
 
 class YOLOv3Head(nn.Module):
-    def __init__(self, anch_mask, n_classes, stride, in_ch=1024, ignore_thre=0.7, label_smooth = False, rfb=False):
+    def __init__(self, anch_mask, n_classes, stride, in_ch=1024, ignore_thre=0.7, label_smooth = False, rfb=False, sep=False):
         super(YOLOv3Head, self).__init__()
         self.anchors = [
             (10, 13), (16, 30), (33, 23), 
             (30, 61), (62, 45), (42, 119),
             (116, 90), (156, 198), (121, 240) ]
+        if sep:
+            self.anchors = [
+                (10, 13), (16, 30), (33, 23), 
+                (30, 61), (62, 45), (42, 119),
+                (116, 90), (156, 198), (373, 326)]
+
         self.anch_mask = anch_mask
         self.n_anchors = 4
         self.n_classes = n_classes
         self.guide_wh = nn.Conv2d(in_channels=in_ch,
                               out_channels=2*self.n_anchors, kernel_size=1, stride=1, padding=0)
-        self.Feature_adaption=FeatureAdaption(in_ch, in_ch, self.n_anchors, rfb)
+        self.Feature_adaption=FeatureAdaption(in_ch, in_ch, self.n_anchors, rfb, sep)
 
         self.conv = nn.Conv2d(in_channels=in_ch,
                               out_channels=self.n_anchors*(self.n_classes+5), kernel_size=1, stride=1, padding=0)
         self.ignore_thre = ignore_thre
         self.l1_loss = nn.L1Loss(reduction='none')
-        #self.l1_loss = nn.SmoothL1Loss(reduction='none')
+        #self.smooth_l1_loss = nn.SmoothL1Loss(reduction='none')
         self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction='none')
         self.bce_loss = nn.BCELoss(reduction='none')
         self.iou_loss = IOUloss(reduction='none')

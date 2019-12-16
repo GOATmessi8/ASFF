@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from utils.DCN.modules.deform_conv2d import DeformConv2d
 
-def add_conv(in_ch, out_ch, ksize, stride):
+def add_conv(in_ch, out_ch, ksize, stride, leaky=True):
     """
     Add a conv2d / batchnorm / leaky ReLU block.
     Args:
@@ -21,8 +21,12 @@ def add_conv(in_ch, out_ch, ksize, stride):
                                        out_channels=out_ch, kernel_size=ksize, stride=stride,
                                        padding=pad, bias=False))
     stage.add_module('batch_norm', nn.BatchNorm2d(out_ch))
-    stage.add_module('leaky', nn.LeakyReLU(0.1))
+    if leaky:
+        stage.add_module('leaky', nn.LeakyReLU(0.1))
+    else:
+        stage.add_module('relu6', nn.ReLU6(inplace=True))
     return stage
+
 
 class upsample(nn.Module):
     __constants__ = ['size', 'scale_factor', 'mode', 'align_corners', 'name']
@@ -166,18 +170,25 @@ class RFBblock(nn.Module):
 
 
 class FeatureAdaption(nn.Module):
-    def __init__(self, in_ch, out_ch, n_anchors, rfb=False):
+    def __init__(self, in_ch, out_ch, n_anchors, rfb=False, sep=False):
         super(FeatureAdaption, self).__init__()
-        self.conv_offset = nn.Conv2d(in_channels=2*n_anchors, 
-                out_channels=2*9*n_anchors, groups = n_anchors, kernel_size=1,stride=1,padding=0)
-        self.dconv = DeformConv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, stride=1,
-                padding=1, deformable_groups=n_anchors)
-        self.rfb=None
-        if rfb:
-            self.rfb = RFBblock(out_ch)
+        if sep:
+            self.sep=True
+        else:
+            self.sep=False
+            self.conv_offset = nn.Conv2d(in_channels=2*n_anchors, 
+                    out_channels=2*9*n_anchors, groups = n_anchors, kernel_size=1,stride=1,padding=0)
+            self.dconv = DeformConv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, stride=1,
+                    padding=1, deformable_groups=n_anchors)
+            self.rfb=None
+            if rfb:
+                self.rfb = RFBblock(out_ch)
 
     def forward(self, input, wh_pred):
         #The RFB block is added behind FeatureAdaption
+        #For mobilenet, we currently don't support rfb and FeatureAdaption
+        if self.sep:
+            return input
         if self.rfb is not None:
             input = self.rfb(input)
         wh_pred_new = wh_pred.detach()
@@ -185,6 +196,72 @@ class FeatureAdaption(nn.Module):
         out = self.dconv(input, offset)
         return out
 
+class ASFFmobile(nn.Module):
+    def __init__(self, level, rfb=False, vis=False):
+        super(ASFFmobile, self).__init__()
+        self.level = level
+        self.dim = [512, 256, 128]
+        self.inter_dim = self.dim[self.level]
+        if level==0:
+            self.stride_level_1 = add_conv(256, self.inter_dim, 3, 2, leaky=False)
+            self.stride_level_2 = add_conv(128, self.inter_dim, 3, 2, leaky=False)
+            self.expand = add_conv(self.inter_dim, 1024, 3, 1, leaky=False)
+        elif level==1:
+            self.compress_level_0 = add_conv(512, self.inter_dim, 1, 1, leaky=False)
+            self.stride_level_2 = add_conv(128, self.inter_dim, 3, 2, leaky=False)
+            self.expand = add_conv(self.inter_dim, 512, 3, 1, leaky=False)
+        elif level==2:
+            self.compress_level_0 = add_conv(512, self.inter_dim, 1, 1, leaky=False)
+            self.compress_level_1 = add_conv(256, self.inter_dim, 1, 1, leaky=False)
+            self.expand = add_conv(self.inter_dim, 256, 3, 1,leaky=False)
+
+        compress_c = 8 if rfb else 16  #when adding rfb, we use half number of channels to save memory
+
+        self.weight_level_0 = add_conv(self.inter_dim, compress_c, 1, 1, leaky=False)
+        self.weight_level_1 = add_conv(self.inter_dim, compress_c, 1, 1, leaky=False)
+        self.weight_level_2 = add_conv(self.inter_dim, compress_c, 1, 1, leaky=False)
+
+        self.weight_levels = nn.Conv2d(compress_c*3, 3, kernel_size=1, stride=1, padding=0)
+        self.vis= vis
+
+
+    def forward(self, x_level_0, x_level_1, x_level_2):
+        if self.level==0:
+            level_0_resized = x_level_0
+            level_1_resized = self.stride_level_1(x_level_1)
+
+            level_2_downsampled_inter =F.max_pool2d(x_level_2, 3, stride=2, padding=1)
+            level_2_resized = self.stride_level_2(level_2_downsampled_inter)
+
+        elif self.level==1:
+            level_0_compressed = self.compress_level_0(x_level_0)
+            level_0_resized =F.interpolate(level_0_compressed, scale_factor=2, mode='nearest')
+            level_1_resized =x_level_1
+            level_2_resized =self.stride_level_2(x_level_2)
+        elif self.level==2:
+            level_0_compressed = self.compress_level_0(x_level_0)
+            level_0_resized =F.interpolate(level_0_compressed, scale_factor=4, mode='nearest')
+            level_1_compressed = self.compress_level_1(x_level_1)
+            level_1_resized =F.interpolate(level_1_compressed, scale_factor=2, mode='nearest')
+            level_2_resized =x_level_2
+
+        level_0_weight_v = self.weight_level_0(level_0_resized)
+        level_1_weight_v = self.weight_level_1(level_1_resized)
+        level_2_weight_v = self.weight_level_2(level_2_resized)
+        levels_weight_v = torch.cat((level_0_weight_v, level_1_weight_v, level_2_weight_v),1)
+        levels_weight = self.weight_levels(levels_weight_v)
+        levels_weight = F.softmax(levels_weight, dim=1)
+
+        fused_out_reduced = level_0_resized * levels_weight[:,0:1,:,:]+\
+                            level_1_resized * levels_weight[:,1:2,:,:]+\
+                            level_2_resized * levels_weight[:,2:,:,:]
+
+        out = self.expand(fused_out_reduced)
+
+        if self.vis:
+            return out, levels_weight, fused_out_reduced.sum(dim=1)
+        else:
+            return out
 
 
 class ASFF(nn.Module):
@@ -251,3 +328,95 @@ class ASFF(nn.Module):
             return out, levels_weight, fused_out_reduced.sum(dim=1)
         else:
             return out
+
+def make_divisible(v, divisor, min_value=None):
+    """
+    This function is taken from the original tf repo.
+    It ensures that all layers have a channel number that is divisible by 8
+    It can be seen here:
+    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    :param v:
+    :param divisor:
+    :param min_value:
+    :return:
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
+
+
+class ConvBNReLU(nn.Sequential):
+    def __init__(self, in_planes, out_planes, kernel_size=3, stride=1, groups=1):
+        padding = (kernel_size - 1) // 2
+        super(ConvBNReLU, self).__init__(
+            nn.Conv2d(in_planes, out_planes, kernel_size, stride, padding, groups=groups, bias=False),
+            nn.BatchNorm2d(out_planes),
+            nn.ReLU6(inplace=True)
+        )
+
+def add_sepconv(in_ch, out_ch, ksize, stride):
+
+    stage = nn.Sequential()
+    pad = (ksize - 1) // 2
+    stage.add_module('sepconv', nn.Conv2d(in_channels=in_ch,
+                                       out_channels=in_ch, kernel_size=ksize, stride=stride,
+                                       padding=pad, groups=in_ch, bias=False))
+    stage.add_module('sepbn', nn.BatchNorm2d(in_ch))
+    stage.add_module('seprelu6', nn.ReLU6(inplace=True))
+    stage.add_module('ptconv', nn.Conv2d(in_ch, out_ch, 1, 1, 0, bias=False))
+    stage.add_module('ptbn', nn.BatchNorm2d(out_ch))
+    stage.add_module('ptrelu6', nn.ReLU6(inplace=True))
+    return stage
+
+class InvertedResidual(nn.Module):
+    def __init__(self, inp, oup, stride, expand_ratio):
+        super(InvertedResidual, self).__init__()
+        self.stride = stride
+        assert stride in [1, 2]
+
+        hidden_dim = int(round(inp * expand_ratio))
+        self.use_res_connect = self.stride == 1 and inp == oup
+
+        layers = []
+        if expand_ratio != 1:
+            # pw
+            layers.append(ConvBNReLU(inp, hidden_dim, kernel_size=1))
+        layers.extend([
+            # dw
+            ConvBNReLU(hidden_dim, hidden_dim, stride=stride, groups=hidden_dim),
+            # pw-linear
+            nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+            nn.BatchNorm2d(oup),
+        ])
+        self.conv = nn.Sequential(*layers)
+
+    def forward(self, x):
+        if self.use_res_connect:
+            return x + self.conv(x)
+        else:
+            return self.conv(x)
+
+class ressepblock(nn.Module):
+    def __init__(self, ch, out_ch, in_ch=None, shortcut=True):
+
+        super().__init__()
+        self.shortcut = shortcut
+        self.module_list = nn.ModuleList()
+        in_ch = ch//2 if in_ch==None else in_ch
+        resblock_one = nn.ModuleList()
+        resblock_one.append(add_conv(ch, in_ch, 1, 1, leaky=False))
+        resblock_one.append(add_conv(in_ch, out_ch, 3, 1,leaky=False))
+        self.module_list.append(resblock_one)
+
+    def forward(self, x):
+        for module in self.module_list:
+            h = x
+            for res in module:
+                h = res(h)
+            x = x + h if self.shortcut else h
+        return x
+

@@ -7,19 +7,30 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 
 <img align="center" src="https://github.com/ruinmessi/ASFF/blob/master/doc/asff.png">
 
+### Updates:
+- Add MobileNet V2!
+    * The previous models actually are ll trained with the wrong anchor setting, we fix the error on mobileNet model.
+    * We currently not support rfb, dropblock and Featre Adaption for mobileNet V2.
+    * FP16 training for mobileNet is not working now, I didn't figure it out. 
+    * FP16 testing for mobileNet drops about 0.2 mAP. 
+
+- Add a demo.py file
+
+- Faster NMS (adopt official implementation)
 
 ### COCO 
-* TODO:
-    Add tiny Yolov3.
 
 | System |  *test-dev mAP* | **Time** (V100) | **Time** (2080ti)|
 |:-------|:-----:|:-------:|:-------:|
-| [YOLOv3 608](http://pjreddie.com/darknet/yolo/) | 33.0 | 20ms| 24ms|
-| YOLOv3 608+ [BoFs](https://arxiv.org/abs/1902.04103) | 37.0 | 20ms | 24ms|
-| YOLOv3 608(ours baseline) | **38.8** | 20ms | 24ms|
-| YOLOv3 608+ ASFF | **40.6** | 22ms | 28ms| 
-| YOLOv3 608+ ASFF\* | **42.4** | 22ms | 29ms| 
-| YOLOv3 800+ ASFF\* | **43.9** | 34ms | 40ms| 
+| [YOLOv3 608](http://pjreddie.com/darknet/yolo/) | 33.0 | 20ms| 26ms|
+| YOLOv3 608+ [BoFs](https://arxiv.org/abs/1902.04103) | 37.0 | 20ms | 26ms|
+| YOLOv3 608 (our baseline) | **38.8** | 20ms | 26ms|
+| YOLOv3 608+ ASFF | **40.6** | 22ms | 30ms| 
+| YOLOv3 608+ ASFF\* | **42.4** | 22ms | 30ms| 
+| YOLOv3 800+ ASFF\* | **43.9** | 34ms | 38ms| 
+| YOLOv3 MobileNetV1 416 + [BoFs](https://arxiv.org/abs/1902.04103)| 28.6 | - | 22 ms| 
+| YOLOv3 MobileNetV2 416 (our baseline) | 29.0 | - | 22 ms| 
+| YOLOv3 MobileNetV2 416 +ASFF | 30.6 | - | 24 ms| 
 
 
 ### Citing 
@@ -53,6 +64,22 @@ Please cite our paper in your publications if it helps your research:
     * Note: We use apex for distributed training and synchronized batch normalization. For FP16 training, since the current apex version have some [issues](https://github.com/NVIDIA/apex/issues/318), we use the old version of FP16_Optimizer, and split the code in ./utils/fp_utils.
 
 - We also support tensorboard if you have installed it.   
+
+### Demo
+
+```Shell
+python demo.py -i /path/to/your/image \
+--cfg config/yolov3_baseline.cfg -d COCO \
+--checkpoint /path/to/you/weights --half --asff --rfb -s 608
+```
+- Note:
+  * -i, --img: image path.
+  * --cfg: config files.
+  * -d: choose datasets, COCO or VOC.
+  * -c, --checkpoint: pretrained weights.
+  * --half: FP16 testing.
+  * -s: evaluation image size, from 320 to 608 as in YOLOv3.
+
 
 ## Datasets
 Note: We currently only support [COCO](http://mscoco.org/) and [VOC](http://host.robots.ox.ac.uk/pascal/VOC/).  
@@ -140,10 +167,13 @@ python -m torch.distributed.launch --nproc_per_node=10 --master_port=${RANDOM+10
 By default, it will directly output the mAP results on COCO *val2017* or VOC *test 2007*. 
 
 ## Models
+* yolov3 mobilenetv2 (ours)[weights](https://drive.google.com/open?id=1XGXJPXHIroimEuW8oujbInNapuEDALOB) [baiduYun](https://pan.baidu.com/s/100TivomBLDTRZSA1pkGiNA) [training tfboard log](https://pan.baidu.com/s/1P_00LAUvV-VOzxqoIxC_Yw)
 
-* yolov3_baseline (ours) [weights](https://drive.google.com/open?id=1RbjUQbNxl4cEbk-6jFkFnOHRukJY5EQk) [baiduYun](https://pan.baidu.com/s/131JhlaOBbeL9l4tqiJO9yA)
+* yolov3 mobilenetv2 +asff [weights](https://drive.google.com/open?id=1cC-xGoaw3Wu5hYd3iXEq6xrAn4U_dW-w) [baiduYun](https://pan.baidu.com/s/1JxX8mYkljk1ap2s4zpLrSg) [training tfboard log](https://pan.baidu.com/s/1R2YL9uZ9baQWR6aht0qVlQ)
 
-* yolov3_asff [weights](https://drive.google.com/open?id=1Dyf8ZEga_VT2O3_c5nrFJA5uON1aSJK-) [baiduYun](https://pan.baidu.com/s/1a-eQZ0kDpsnUooD4RtRdxg)
+* yolov3_baseline (ours) [weights](https://drive.google.com/open?id=1RbjUQbNxl4cEbk-6jFkFnOHRukJY5EQk) [baiduYun](https://pan.baidu.com/s/131JhlaOBbeL9l4tqiJO9yA) [training tfboard log](https://pan.baidu.com/s/1GcpVnq7mhIsrk8zrJ9FF2g)
+
+* yolov3_asff [weights](https://drive.google.com/open?id=1Dyf8ZEga_VT2O3_c5nrFJA5uON1aSJK-) [baiduYun](https://pan.baidu.com/s/1a-eQZ0kDpsnUooD4RtRdxg) [training tfboard log](https://pan.baidu.com/s/1MeMkAWwv1SFsVbvsTpj_xQ)
 
 * yolov3_asff\* (320-608) [weights](https://drive.google.com/open?id=1N668Za8OBbJbUStYde0ml9SZdM7tabXy) [baiduYun](https://pan.baidu.com/s/1d9hOQBj20HCy51qWbonxMQ)
 

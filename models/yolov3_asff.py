@@ -67,7 +67,7 @@ class YOLOv3(nn.Module):
     The network returns loss values from three YOLO layers during training \
     and detection results during test.
     """
-    def __init__(self, num_classes = 80, ignore_thre=0.7, label_smooth = False, rfb=False, vis=False):
+    def __init__(self, num_classes = 80, ignore_thre=0.7, label_smooth = False, rfb=False, vis=False, asff=False):
         """
         Initialization of YOLOv3 class.
         Args:

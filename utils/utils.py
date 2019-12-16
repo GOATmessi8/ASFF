@@ -1,57 +1,8 @@
 from __future__ import division
 import torch
+import torchvision
 import numpy as np
 import cv2
-
-
-def nms(bbox, thresh, score=None, limit=None):
-    """Suppress bounding boxes according to their IoUs and confidence scores.
-    Args:
-        bbox (array): Bounding boxes to be transformed. The shape is
-            :math:`(R, 4)`. :math:`R` is the number of bounding boxes.
-        thresh (float): Threshold of IoUs.
-        score (array): An array of confidences whose shape is :math:`(R,)`.
-        limit (int): The upper bound of the number of the output bounding
-            boxes. If it is not specified, this method selects as many
-            bounding boxes as possible.
-    Returns:
-        array:
-        An array with indices of bounding boxes that are selected. \
-        They are sorted by the scores of bounding boxes in descending \
-        order. \
-        The shape of this array is :math:`(K,)` and its dtype is\
-        :obj:`numpy.int32`. Note that :math:`K \\leq R`.
-
-    from: https://github.com/chainer/chainercv
-    """
-
-    if len(bbox) == 0:
-        return np.zeros((0,), dtype=np.int32)
-
-    if score is not None:
-        order = score.argsort()[::-1]
-        bbox = bbox[order]
-    bbox_area = np.prod(bbox[:, 2:] - bbox[:, :2], axis=1)
-
-    selec = np.zeros(bbox.shape[0], dtype=bool)
-    for i, b in enumerate(bbox):
-        tl = np.maximum(b[:2], bbox[selec, :2])
-        br = np.minimum(b[2:], bbox[selec, 2:])
-        area = np.prod(br - tl, axis=1) * (tl < br).all(axis=1)
-
-        iou = area / (bbox_area[i] + bbox_area[selec] - area)
-        if (iou >= thresh).any():
-            continue
-
-        selec[i] = True
-        if limit is not None and np.count_nonzero(selec) >= limit:
-            break
-
-    selec = np.where(selec)[0]
-    if score is not None:
-        selec = order[selec]
-    return selec.astype(np.int32)
-
 
 def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
     """
@@ -85,11 +36,6 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
 
     output = [None for _ in range(len(prediction))]
     for i, image_pred in enumerate(prediction):
-        # Filter out confidence scores below threshold
-        class_pred = torch.max(image_pred[:, 5:5 + num_classes], 1)
-        class_pred = class_pred[0]
-        conf_mask = (image_pred[:, 4] * class_pred >= conf_thre).squeeze()
-        image_pred = image_pred[conf_mask]
 
         # If none are remaining => process next image
         if not image_pred.size(0):
@@ -98,19 +44,22 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
         class_conf, class_pred = torch.max(
             image_pred[:, 5:5 + num_classes], 1,  keepdim=True)
 
+        conf_mask = (image_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
         detections = torch.cat(
-            (image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
+            (image_pred[:, :5], class_conf, class_pred.float()), 1)
+        detections = detections[conf_mask]
+        if not detections.size(0):
+            continue
+
         # Iterate through all predicted classes
-        unique_labels = detections[:, -1].cpu().unique()
-        if prediction.is_cuda:
-            unique_labels = unique_labels.cuda()
+        unique_labels = detections[:, -1].unique()
+
         for c in unique_labels:
             # Get the detections with the particular class
             detections_class = detections[detections[:, -1] == c]
-            nms_in = detections_class.cpu().numpy()
-            nms_out_index = nms(
-                nms_in[:, :4], nms_thre, score=nms_in[:, 4]*nms_in[:, 5])
+            nms_out_index = torchvision.ops.nms(
+                detections_class[:, :4], detections_class[:, 4]*detections_class[:, 5], nms_thre)
             detections_class = detections_class[nms_out_index]
             if output[i] is None:
                 output[i] = detections_class
@@ -178,8 +127,6 @@ def visual(img, boxes, scores):
 
     COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
     FONT = cv2.FONT_HERSHEY_SIMPLEX
-    #boxes[:,::2] *=img.shape[1]
-    #boxes[:,1::2] *=img.shape[0]
     for i in range(boxes.shape[0]):
 
         cv2.rectangle(img, (int(boxes[i][0]),int(boxes[i][1])),(int(boxes[i][2]),int(boxes[i][3])),COLORS[i%3],2)
