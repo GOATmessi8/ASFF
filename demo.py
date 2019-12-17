@@ -88,7 +88,8 @@ def demo():
         print("loading pytorch ckpt...", args.checkpoint)
         cpu_device = torch.device("cpu")
         ckpt = torch.load(args.checkpoint, map_location=cpu_device)
-        model.load_state_dict(ckpt,strict=False)
+        #model.load_state_dict(ckpt,strict=False)
+        model.load_state_dict(ckpt)
     if cuda:
         print("using cuda")
         torch.backends.cudnn.benchmark = True
