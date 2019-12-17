@@ -114,6 +114,8 @@ ln -s /path/to/VOCdevkit ./data/VOC
 - First download the mix-up pretrained [Darknet-53](https://arxiv.org/abs/1902.04103) PyTorch base network weights at: https://drive.google.com/open?id=1phqyYhV1K9KZLQZH1kENTAPprLBmymfP  
   or from our [BaiduYun Driver](https://pan.baidu.com/s/19PaXl6p9vXHG2ZuGqtfLOg) 
 
+- For MobileNetV2, we use the pytorch official [weights](https://drive.google.com/open?id=1LwMd9lK6YqGM8Yjf_ClBT2MG1-PHgUGa) (change the key name to fit our code), or from our [BaiduYun Driver](https://pan.baidu.com/s/12eScI6YNBvkVX0286cMEZA)
+
 - By default, we assume you have downloaded the file in the `ASFF/weights` dir:
 
 - Since random resizing consumes much more GPU memory, we implement FP16 training with an old version of apex. 
