@@ -122,7 +122,7 @@ def main():
     random_resize = cfg['TRAIN']['RANDRESIZE']
     input_size = (cfg['TRAIN']['IMGSIZE'],cfg['TRAIN']['IMGSIZE'])
     test_size = (args.test_size,args.test_size)
-    step = (180, 240) # for no cos lr shedule training
+    steps = (180, 240) # for no cos lr shedule training
 
 
     # Learning rate setup
