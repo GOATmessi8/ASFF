@@ -1,4 +1,4 @@
-# Learning Spatial Fusion for Single-Shot Object Detection
+## Learning Spatial Fusion for Single-Shot Object Detection
 
 By Songtao Liu, Di Huang, Yunhong Wang
 
