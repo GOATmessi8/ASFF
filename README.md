@@ -8,6 +8,7 @@ In this work, we propose a novel and data driven strategy for pyramidal feature 
 <img align="center" src="https://github.com/ruinmessi/ASFF/blob/master/doc/asff.png">
 
 ### Updates:
+- YOLOX is [here!](https://github.com/Megvii-BaseDetection/YOLOX), come and use the stronger YOLO!
 - Add MobileNet V2!
     * The previous models actually are all trained with the wrong anchor setting, we fix the error on mobileNet model.
     * We currently not support rfb, dropblock and Feature Adaption for mobileNet V2.
